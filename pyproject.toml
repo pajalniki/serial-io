@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "serial-io"
+version = "0.1.0"
+description = ""
+authors = ["Dmitriy Dronov <mice-seller@yandex.ru>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pyserial = "^3.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
