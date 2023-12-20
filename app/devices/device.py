@@ -1,6 +1,6 @@
 import serial
 from app.model import AbstractSingleRunner
-from app.services import consoleService, Console
+from app.services import consoleService, Console, socketioService
 from .devices_enums import DeviceType
 
 class Device(AbstractSingleRunner):
@@ -8,8 +8,6 @@ class Device(AbstractSingleRunner):
     console: Console
     code: str = None
     type: DeviceType = None
-
-    _runner: AbstractSingleRunner
     
     @property
     def active(self):
@@ -45,11 +43,47 @@ class Device(AbstractSingleRunner):
             self.console.log(f'Устройство {self._serial.port} не отправило код')
 
 
+    def get_input(self):
+        try:
+            got_str = self._device._serial.readline().decode('ascii') #получение отправленных данных
+            split = got_str.replace('/n', '').strip().split() #разделяем полученную строку
+
+            if not len(split):
+                return
+            if (len(split) != 2):
+                self.console.log(f'{self._device.code} - неверный формат ввода {got_str}')
+                return
+
+            (action_code, payload) = split
+            self.console.log(f'КОД: {self._device.code} | СОБЫТИЕ: {action_code} | ДАННЫЕ: {payload}')
+            
+            if (not socketioService.is_connected):
+                self.console.log(f'Связь с сервером недоступна')
+                return
+            
+            socketioService.emit_event(self._device.code, action_code, payload)
+
+        except Exception as ex:
+            self.console.log(f'{self._device.code} - выполнение прервано. {ex}')
+            self.console.log(f'Отключаю {self._device.code}')
+            self._device.kill()
+            return
+        
+
+    async def send_output(self):
+        pass
+
+
     async def run_single(self):
         if not self.code:
             self.read_code()
-        elif(self._runner):
-            await self._runner.run_single()
+            return
+        
+        if (self.type == DeviceType.INPUT_DEVICE or self.type == DeviceType.INPUT_OUTPUT_DEVICE):
+            self.get_input()
+            
+        if (self.type == DeviceType.OUTPUT_DEVICE or self.type == DeviceType.INPUT_OUTPUT_DEVICE):
+            self.send_output()
 
 
 def device_factory(device: Device) -> AbstractSingleRunner:

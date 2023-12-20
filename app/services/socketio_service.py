@@ -1,5 +1,6 @@
 import asyncio
 import socketio
+from typing import Dict
 from app import current_app
 from app.model import AbstractRunner
 from .console_service import consoleService, Console
@@ -7,10 +8,11 @@ from .console_service import consoleService, Console
 class SocketIOService(AbstractRunner):
     __requests_pool = set()
     __sio = socketio.AsyncSimpleClient()
+    __events_recieved: Dict[str, str] = { }
 
     console: Console
     run_interval = 1.0
-
+    listen_interval = 5
 
     @property
     def is_connected(self):
@@ -24,7 +26,14 @@ class SocketIOService(AbstractRunner):
 
     async def connect(self) -> None:
         await self.__sio.connect(current_app.config.SERVER_HOST)
-        self.console.log(f'Подключен к серверу: {current_app.config.SERVER_HOST}')
+        self.listen()
+        self.console.log(f'Подключен к серверу: {current_app.config.SERVER_HOST} (Через {self.__sio.transport})')
+
+
+    def listen(self) -> None:
+        @self.__sio.event
+        def event(data):
+            print('Получены данные: ', data)
 
 
     def emit_event(self, device_code: str, action: str, payload: any) -> None:
@@ -36,10 +45,18 @@ class SocketIOService(AbstractRunner):
         # To prevent keeping references to finished tasks forever,
         # make each task remove its own reference from the set after
         # completion:
-        task.add_done_callback(self.__make_done_callback(device_code, action))
+        task.add_done_callback(self.__on_event_sent(device_code, action))
 
 
-    def __make_done_callback(self, device_code: str, action: str):
+    def __on_event_recieved(self) -> None:
+        def result(task: asyncio.Task):
+            event = task.result
+            
+            self.__requests_pool.discard(task)
+            return result
+
+
+    def __on_event_sent(self, device_code: str, action: str):
         def result(task: asyncio.Task):
             self.console.log(f'Отправил событие {action} ({device_code})')
             self.__requests_pool.discard(task)
