@@ -4,14 +4,14 @@ import glob
 from typing import Dict
 import serial
 from .console_service import consoleService, Console
-from app.devices import BaseDevice
+from app.devices import Device
 from app.model import AbstractRunner
 
 class SerialService(AbstractRunner):
 
-    __search_delays = [2, 2, 2, 3, 3, 3, 5, 5, 5, 7]
+    __search_delays = [1, 1, 1, 2, 2, 2, 3, 3, 3, 4]
     __search_delay_idx = 0
-    __devices: Dict[str, BaseDevice] = { }
+    __devices: Dict[str, Device] = { }
 
     run_interval = .08
     console: Console
@@ -30,6 +30,9 @@ class SerialService(AbstractRunner):
             :returns:
                 A list of the serial ports available on the system
         """
+        
+        currentPorts = [*self.__devices.keys()]
+
         if sys.platform.startswith('win'):
             ports = ['COM%s' % (i + 1) for i in range(256)]
         elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):
@@ -42,6 +45,10 @@ class SerialService(AbstractRunner):
 
         result = []
         for port in ports:
+            if (port in currentPorts):
+                if (self.__devices[port].active):
+                    result.append(port)
+                    continue
             try:
                 s = serial.Serial(port)
                 s.close()
@@ -72,7 +79,7 @@ class SerialService(AbstractRunner):
     def install_device(self, port):
         serial = self.define_serial(port)
         if (serial):
-            self.__devices[port] = BaseDevice(serial)
+            self.__devices[port] = Device(serial)
 
     
     def delete_device(self, port):
@@ -82,6 +89,8 @@ class SerialService(AbstractRunner):
 
 
     async def refresh_serials(self):
+        currentPorts = [*self.__devices.keys()]
+
         self.__search_delay_idx = min(self.__search_delay_idx, len(self.__search_delays) - 1)
         await asyncio.sleep(self.__search_delays[self.__search_delay_idx])
         self.__search_delay_idx += 1
@@ -91,20 +100,28 @@ class SerialService(AbstractRunner):
             self.console.log('Доступных serial портов не обнаружено')
 
         for port in new_ports:
-            if (port in self.__devices):
+            if (port in currentPorts):
                 continue
 
             self.install_device(port)
 
-        for port in self.__devices:
+        for port in currentPorts:
             if not(port in new_ports):
                 self.delete_device(port)
 
 
     async def run(self):
+        task = asyncio.create_task(self.refresh_serials())
+
         while True:
-            await asyncio.gather(*[device.run_single() for device in self.__devices.values()],  self.refresh_serials())
+            currentDevices = [*self.__devices.values()]
+            await asyncio.gather(*[device.run_single() for device in currentDevices])
+
+            if (task.done()):
+                task = asyncio.create_task(self.refresh_serials())
+
             await asyncio.sleep(self.run_interval)
 
 
-serial_service = SerialService()
+serialService = SerialService()
+__all__ = ['serialService']

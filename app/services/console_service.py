@@ -21,3 +21,5 @@ class ConsoleService:
         return Console(name)
 
 consoleService = ConsoleService()
+
+__all__ = ['consoleService', 'Console']

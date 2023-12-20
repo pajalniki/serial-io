@@ -1,19 +1,16 @@
 """
 Конфиг Serial IO
-Обратите внимание на различные конфигурации для linux и windows
+Обратите внимание на различные конфигурации тестового и боевого режима
 """
 
 class Config(object):
-    TESTING = False
-
-class WindowsConfig(Config):
-    DEBUG = False
-    FLASK_ENV = 'production'
-
-class LinuxConfig(Config):
     DEBUG = True
-    FLASK_ENV = 'development'
-    ENV = "development"
+    SERVER_HOST = 'http://127.0.0.1:5000'
 
-class TestingConfig(Config):
-    TESTING = True
+class ProductionConfig(Config):
+    DEBUG = False
+    SERVER_HOST = 'http://127.0.0.1:5000'
+
+class DevelopmentConfig(Config):
+    DEBUG = True
+    SERVER_HOST = 'http://127.0.0.1:5000'

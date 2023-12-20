@@ -8,6 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 pyserial = "^3.5"
+python-socketio = {extras = ["asyncio-client"], version = "^5.10.0"}
 
 
 [build-system]

@@ -1,3 +1,3 @@
-<center># Serial IO</center>
+# Serial IO
 
-> ПО для автоматизированного чтения serial портов (arduino), и отправки данных по socketIO
+**ПО для автоматизированного чтения serial портов (arduino), и отправки данных по socketIO**
