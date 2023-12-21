@@ -1,7 +1,11 @@
+import asyncio
 import serial
 from app.model import AbstractSingleRunner
-from app.services import consoleService, Console, socketioService
+from app.services import consoleService, Console
+from app.services.socketio_service import socketioService
 from .devices_enums import DeviceType
+
+string_encode_interval = 0.02
 
 class Device(AbstractSingleRunner):
     _serial: serial.Serial
@@ -30,14 +34,12 @@ class Device(AbstractSingleRunner):
         code = got_str.replace('/n', '').strip()
         
         # По умолчанию
-        device_type = DeviceType.INPUT_DEVICE
+        device_type = DeviceType.INPUT_OUTPUT_DEVICE
 
         if (code):
             self.type = device_type
             self.code = code
             self.console.log(f'Устройство {self._serial.port} опознано как {self.code}, тип: {self.type}')
-            
-            self._runner = device_factory(self)
             self._serial.write(str.encode('OK'))
         else:
             self.console.log(f'Устройство {self._serial.port} не отправило код')
@@ -45,36 +47,47 @@ class Device(AbstractSingleRunner):
 
     def get_input(self):
         try:
-            got_str = self._device._serial.readline().decode('ascii') #получение отправленных данных
+            got_str = self._serial.readline().decode('ascii') #получение отправленных данных
             split = got_str.replace('/n', '').strip().split() #разделяем полученную строку
 
             if not len(split):
                 return
             if (len(split) != 2):
-                self.console.log(f'{self._device.code} - неверный формат ввода {got_str}')
+                self.console.log(f'{self.code} - неверный формат ввода {got_str}')
                 return
 
             (action_code, payload) = split
-            self.console.log(f'КОД: {self._device.code} | СОБЫТИЕ: {action_code} | ДАННЫЕ: {payload}')
+            self.console.log(f'КОД: {self.code} | СОБЫТИЕ: {action_code} | ДАННЫЕ: {payload}')
             
             if (not socketioService.is_connected):
                 self.console.log(f'Связь с сервером недоступна')
                 return
             
-            socketioService.emit_event(self._device.code, action_code, payload)
+            socketioService.emit_event(self.code, action_code, payload)
 
         except Exception as ex:
-            self.console.log(f'{self._device.code} - выполнение прервано. {ex}')
-            self.console.log(f'Отключаю {self._device.code}')
-            self._device.kill()
+            self.console.log(f'{self.code} - выполнение прервано. {ex}')
+            self.console.log(f'Отключаю {self.code}')
+            self.kill()
             return
         
 
-    async def send_output(self):
-        pass
+    async def transmit_output(self):
+        events = socketioService.transmit_events(self.code)
+        if (not events or not len(events)):
+            return
+        
+        # Важный момент, имя устройства не передаем. Сокращаем количество передаваемых данных
+        for event in events:
+            self._serial.write(str.encode(f'{event.action} {event.payload}'))
+            await asyncio.sleep(string_encode_interval)
+            pass
 
 
     async def run_single(self):
+        if not self.active:
+            return
+
         if not self.code:
             self.read_code()
             return
@@ -83,11 +96,4 @@ class Device(AbstractSingleRunner):
             self.get_input()
             
         if (self.type == DeviceType.OUTPUT_DEVICE or self.type == DeviceType.INPUT_OUTPUT_DEVICE):
-            self.send_output()
-
-
-def device_factory(device: Device) -> AbstractSingleRunner:
-    if (device.type == DeviceType.INPUT_DEVICE):
-        from .input_device import InputDevice
-        return InputDevice(device)
-    pass
+            await self.transmit_output()
