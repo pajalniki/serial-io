@@ -3,7 +3,6 @@ import serial
 from app.model import AbstractSingleRunner
 from app.services import consoleService, Console
 from app.services.socketio_service import socketioService
-from .devices_enums import DeviceType
 
 string_encode_interval = 0.02
 
@@ -11,7 +10,6 @@ class Device(AbstractSingleRunner):
     _serial: serial.Serial
     console: Console
     code: str = None
-    type: DeviceType = None
     
     @property
     def active(self):
@@ -33,13 +31,9 @@ class Device(AbstractSingleRunner):
         got_str = self._serial.readline().decode('ascii')
         code = got_str.replace('/n', '').strip()
         
-        # По умолчанию
-        device_type = DeviceType.INPUT_OUTPUT_DEVICE
-
         if (code):
-            self.type = device_type
             self.code = code
-            self.console.log(f'Устройство {self._serial.port} опознано как {self.code}, тип: {self.type}')
+            self.console.log(f'Устройство {self._serial.port} опознано как {self.code}')
             self._serial.write(str.encode('OK'))
         else:
             self.console.log(f'Устройство {self._serial.port} не отправило код')
@@ -92,8 +86,6 @@ class Device(AbstractSingleRunner):
             self.read_code()
             return
         
-        if (self.type == DeviceType.INPUT_DEVICE or self.type == DeviceType.INPUT_OUTPUT_DEVICE):
-            self.get_input()
-            
-        if (self.type == DeviceType.OUTPUT_DEVICE or self.type == DeviceType.INPUT_OUTPUT_DEVICE):
-            await self.transmit_output()
+        self.get_input()
+        
+        await self.transmit_output()
