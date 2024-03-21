@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  app:
+    # Для работы USB
+    privileged: true
+
+    # Путь до Dockerfile
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+
+    # Имя для создаваемого контейнера
+    container_name: serial-io
+
+
+    # Перезапускаем сервис в случае падения
+    restart: on-failure
+
+    # Прокладывам путь для файлов. Все файлы, которые хранятся у вас в 
+    # директории ./app, появятся в корне контейнера /
+    # прокидываем USB устройства в контейнер
+    volumes:
+      - .:/app
+      - /dev/bus/usb:/dev/bus/usb
+
+    # Создание переменных окружения в контейнере (из файла .env)
+    env_file:
+      - ./.env
+
+    # gunicorn запускает в файле main.py, функцию run_app_production с конфигом gunicorn.conf.py
+    command: python main.py -b
+

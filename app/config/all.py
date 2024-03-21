@@ -9,7 +9,7 @@ class Config(object):
 
 class ProductionConfig(Config):
     DEBUG = False
-    SERVER_HOST = 'http://127.0.0.1:5000'
+    SERVER_HOST = 'http://127.0.0.1:5555'
 
 class DevelopmentConfig(Config):
     DEBUG = True
