@@ -1,5 +1,8 @@
 [tool.poetry]
 name = "serial-io"
+packages = [
+    { include = "main.py" }
+]
 version = "0.1.0"
 description = ""
 authors = ["Dmitriy Dronov <mice-seller@yandex.ru>"]
