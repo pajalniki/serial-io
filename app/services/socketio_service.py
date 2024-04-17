@@ -35,7 +35,7 @@ class SocketIOService(AbstractRunner):
         await self.__sio.connect(current_app.config.SERVER_HOST)
         
         self.listen()
-        self.console.logSelf(f'Подключен к серверу: {current_app.config.SERVER_HOST} (Через {self.__sio.transport()})')
+        self.console.log_self(f'Подключен к серверу: {current_app.config.SERVER_HOST} (Через {self.__sio.transport()})')
 
 
     def listen(self) -> None:
@@ -49,7 +49,7 @@ class SocketIOService(AbstractRunner):
             (device_code, action) = splitting
             event_model = SocketioEvent(device_code, action, payload)
             
-            self.console.logSelf(f'Событие для устройства {device_code}, действие {action}')
+            self.console.log_self(f'Событие для устройства {device_code}, действие {action}')
 
             if not device_code in self.__events_recieved:
                 self.__events_recieved[device_code] = [ event_model ]
@@ -77,13 +77,13 @@ class SocketIOService(AbstractRunner):
         
         copy = [SocketioEvent(e.device_code, e.action, e.payload) for e in self.__events_recieved[device_code]]
         del self.__events_recieved[device_code]
-        self.console.logSelf(f'Передал {device_code} {len(copy)} событие(-ий)')
+        self.console.log_self(f'Передал {device_code} {len(copy)} событие(-ий)')
         return copy
 
 
     def __on_event_sent(self, device_code: str, action: str):
         def result(task: asyncio.Task):
-            self.console.logSelf(f'Отправил событие {action} ({device_code})')
+            self.console.log_self(f'Отправил событие {action} ({device_code})')
             self.__requests_pool.discard(task)
         return result
 
@@ -102,7 +102,7 @@ class SocketIOService(AbstractRunner):
                 continue
 
             if (task.cancelled() or (task.done() and task.exception()) or (task.done() and not self.is_connected)):
-                self.console.logSelf(f'Возникли проблемы с подключением к {current_app.config.SERVER_HOST}. Пробую снова')
+                self.console.log_self(f'Возникли проблемы с подключением к {current_app.config.SERVER_HOST}. Пробую снова')
                 task = asyncio.create_task(self.connect())
 
 

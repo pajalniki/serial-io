@@ -7,16 +7,16 @@ class Console:
         self.prefix = prefix
         self.previousPhrase = ""
 
-    def logHard(self, message: str) -> None:
+    def log_hard(self, message: str) -> None:
         '''Выводит сообщение в консоль немедленно'''
         time = datetime.now().strftime("%H:%M:%S")
         print(f'[{time}] { self.prefix }:', message)
         self.previousPhrase = message
 
-    def logSelf(self, message: str):
+    def log_self(self, message: str):
         '''Выводит сообщение в консоль только в случае, если оно отличается от прошлого сообщения консоли'''
         if self.previousPhrase != message:
-            self.logHard(message)
+            self.log_hard(message)
         self.previousPhrase = message
 
 

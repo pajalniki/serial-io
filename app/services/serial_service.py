@@ -68,10 +68,10 @@ class SerialService(AbstractRunner):
                 bytesize=serial.EIGHTBITS,          # число бит информации
                 timeout=timeout                     # задержка в чтении порта
             )
-            self.console.logSelf(f'Успешно установлен serial для {port}')
+            self.console.log_self(f'Успешно установлен serial для {port}')
             return ser
         except Exception as ex:
-            self.console.logSelf(f'{port} не доступен. Пробуем снова')
+            self.console.log_self(f'{port} не доступен. Пробуем снова')
         
         return None
 
@@ -85,7 +85,7 @@ class SerialService(AbstractRunner):
     def delete_device(self, port):
         if (self.__devices[port]):
             del self.__devices[port]
-            self.console.logSelf(f'Порт {port} отключен')
+            self.console.log_self(f'Порт {port} отключен')
 
 
     async def refresh_serials(self):
@@ -97,7 +97,7 @@ class SerialService(AbstractRunner):
 
         new_ports = self.list()
         if not len(new_ports):
-            self.console.logSelf('Доступных serial портов не обнаружено')
+            self.console.log_self('Доступных serial портов не обнаружено')
 
         for port in new_ports:
             if (port in currentPorts):
