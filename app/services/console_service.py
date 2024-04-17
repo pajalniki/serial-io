@@ -5,11 +5,21 @@ class Console:
 
     def __init__(self, prefix) -> None:
         self.prefix = prefix
+        self.previousPhrase = ""
 
-    def log(self, message: str) -> None:
+    def logHard(self, message: str) -> None:
+        '''Выводит сообщение в консоль немедленно'''
         time = datetime.now().strftime("%H:%M:%S")
-
         print(f'[{time}] { self.prefix }:', message)
+        self.previousPhrase = message
+
+    def logSelf(self, message: str):
+        '''Выводит сообщение в консоль только в случае, если оно отличается от прошлого сообщения консоли'''
+        if self.previousPhrase != message:
+            self.logHard(message)
+        self.previousPhrase = message
+
+
 
 class ConsoleService:
 
