@@ -33,10 +33,10 @@ class Device(AbstractSingleRunner):
         
         if (code):
             self.code = code
-            self.console.logHard(f'Устройство {self._serial.port} опознано как {self.code}')
+            self.console.logSelf(f'Устройство {self._serial.port} опознано как {self.code}')
             self._serial.write(str.encode('OK'))
         else:
-            self.console.logHard(f'Устройство {self._serial.port} не отправило код')
+            self.console.logSelf(f'Устройство {self._serial.port} не отправило код')
 
 
     def get_input(self):
@@ -47,21 +47,20 @@ class Device(AbstractSingleRunner):
             if not len(split):
                 return
             if (len(split) != 2):
-                self.console.logHard(f'{self.code} - неверный формат ввода {got_str}')
+                self.console.logSelf(f'{self.code} - неверный формат ввода {got_str}')
                 return
 
             (action_code, payload) = split
-            self.console.logHard(f'КОД: {self.code} | СОБЫТИЕ: {action_code} | ДАННЫЕ: {payload}')
+            self.console.logSelf(f'КОД: {self.code} | СОБЫТИЕ: {action_code} | ДАННЫЕ: {payload}')
             
             if (not socketioService.is_connected):
-                self.console.logHard(f'Связь с сервером недоступна')
+                self.console.logSelf(f'Связь с сервером недоступна')
                 return
             
             socketioService.emit_event(self.code, action_code, payload)
 
         except Exception as ex:
-            self.console.logHard(f'{self.code} - выполнение прервано. {ex}')
-            self.console.logHard(f'Отключаю {self.code}')
+            self.console.logSelf(f'{self.code} - выполнение прервано. {ex} \nОтключаю {self.code}')
             self.kill()
             return
         
