@@ -1,8 +1,7 @@
-class BaseAction():
+class BaseAction:
+  type: str
+  payload: dict
 
-    type: str
-    payload: dict
-
-    def __init__(self, type, payload):
-        self.type = type
-        self.payload = payload
+  def __init__(self, type, payload):
+    self.type = type
+    self.payload = payload
