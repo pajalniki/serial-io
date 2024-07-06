@@ -19,7 +19,6 @@ def run(args: Namespace):
     current_app.config = DevelopmentConfig
 
   try:
-    asyncio.ensure_future(serialService.run())
     asyncio.ensure_future(socketioService.run())
     current_app.loop.run_forever()
   except KeyboardInterrupt:

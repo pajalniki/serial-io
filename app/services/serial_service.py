@@ -1,24 +1,34 @@
 import sys
-import asyncio
 import glob
 from typing import Dict
+import asyncio
+from reactivex import interval, operators as ops
+from reactivex.disposable.disposable import Disposable
+from reactivex.scheduler.eventloop import AsyncIOScheduler
 import serial
 from .console_service import consoleService, Console
 from app.devices import Device
-from app.model import AbstractRunner
+
+REFRESH_INTERVAL = 1
 
 
-class SerialService(AbstractRunner):
-  __search_delays = [1, 1, 1, 2, 2, 2, 3, 3, 3, 4]
-  __search_delay_idx = 0
+class SerialService:
   __devices: Dict[str, Device] = {}
+  __subscription: Disposable
+  __asyncio_scheduler: AsyncIOScheduler
 
-  run_interval = 0.08
   console: Console
 
   def __init__(self) -> None:
     self.console = consoleService.console(self)
-    pass
+
+    refresh = interval(REFRESH_INTERVAL).pipe(ops.map(lambda _n: self.refresh_serials()))
+
+    loop = asyncio.get_event_loop()
+    # asyncio.set_event_loop(loop)
+
+    self.__asyncio_scheduler = AsyncIOScheduler(loop)
+    self.__subscription = refresh.subscribe()
 
   def list(self):
     """Lists serial port names
@@ -75,19 +85,16 @@ class SerialService(AbstractRunner):
   def install_device(self, port):
     serial = self.define_serial(port)
     if serial:
-      self.__devices[port] = Device(serial)
+      self.__devices[port] = Device(serial, self.__asyncio_scheduler)
 
   def delete_device(self, port):
     if self.__devices[port]:
+      self.__devices[port].kill()
       del self.__devices[port]
       self.console.log_self(f"Порт {port} отключен")
 
-  async def refresh_serials(self):
+  def refresh_serials(self):
     currentPorts = [*self.__devices.keys()]
-
-    self.__search_delay_idx = min(self.__search_delay_idx, len(self.__search_delays) - 1)
-    await asyncio.sleep(self.__search_delays[self.__search_delay_idx])
-    self.__search_delay_idx += 1
 
     new_ports = self.list()
     if not len(new_ports):
@@ -102,18 +109,6 @@ class SerialService(AbstractRunner):
     for port in currentPorts:
       if port not in new_ports:
         self.delete_device(port)
-
-  async def run(self):
-    task = asyncio.create_task(self.refresh_serials())
-
-    while True:
-      currentDevices = [*self.__devices.values()]
-      await asyncio.gather(*[device.run_single() for device in currentDevices])
-
-      if task.done():
-        task = asyncio.create_task(self.refresh_serials())
-
-      await asyncio.sleep(self.run_interval)
 
 
 serialService = SerialService()

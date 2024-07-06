@@ -1,28 +1,54 @@
-import asyncio
 import serial
-from app.model import AbstractSingleRunner
+from reactivex import interval, merge, operators as ops, Observable
+from reactivex.disposable.disposable import Disposable
+from reactivex.abc import SchedulerBase
 from app.services import consoleService, Console
 from app.services.socketio_service import socketioService
 
-STRING_ENCODE_INTERVAL = 0.02
+READ_INTERVAL = 0.01  # нужно считывать как можно чаще, чтобы буффер serial не ждал
+TRANSMIT_INTERVAL = 0.095  # общее ограничение на чуть больше 10 fps
 
 
-class Device(AbstractSingleRunner):
+class Device:
   _serial: serial.Serial
   console: Console
   code: str = None
+  subscription: Disposable
 
   @property
   def active(self):
     return self._serial.is_open
 
-  def kill(self):
-    self._serial.close()
-    return
-
-  def __init__(self, dev_serial: serial.Serial) -> None:
+  def __init__(self, dev_serial: serial.Serial, sheduler: SchedulerBase) -> None:
     self._serial = dev_serial
     self.console = consoleService.console(self)
+
+    readStream: Observable = interval(READ_INTERVAL).pipe(
+      ops.observe_on(sheduler),
+      ops.filter(lambda _n: self.active),
+      ops.map(lambda _n: self.read_input()),
+      ops.catch(lambda ex, _obs: self.kill(ex)),
+    )
+
+    transmitStream: Observable = interval(TRANSMIT_INTERVAL).pipe(
+      ops.observe_on(sheduler),
+      ops.filter(lambda _n: self.active),
+      ops.map(lambda _n: self.transmit_output()),
+      ops.catch(lambda ex, _obs: self.kill(ex)),
+    )
+
+    observables: Observable = merge(readStream, transmitStream)
+
+    self.subscription = observables.subscribe()
+
+  def kill(self, ex: Exception):
+    self._serial.close()
+    self.subscription.dispose()
+    if ex:
+      self.console.log_self(f"Прерываю устройство {self.code} из-за исключения {ex}")
+    else:
+      self.console.log_self(f"Прерываю устройство {self.code}")
+    return
 
   def read_code(self):
     got_str = self._serial.readline().decode("ascii")
@@ -63,7 +89,7 @@ class Device(AbstractSingleRunner):
       self.kill()
       return
 
-  async def transmit_output(self):
+  def transmit_output(self):
     events = socketioService.transmit_events(self.code)
     if not events or not len(events):
       return
@@ -71,16 +97,10 @@ class Device(AbstractSingleRunner):
     # Важный момент, имя устройства не передаем. Сокращаем количество передаваемых данных
     for event in events:
       self._serial.write(str.encode(f"{event.action} {event.payload}"))
-      await asyncio.sleep(STRING_ENCODE_INTERVAL)
 
-  async def run_single(self):
-    if not self.active:
-      return
-
+  def read_input(self):
     if not self.code:
       self.read_code()
       return
 
     self.get_input()
-
-    await self.transmit_output()
