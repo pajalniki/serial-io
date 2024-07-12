@@ -1,22 +1,23 @@
 import asyncio
+import multiprocessing
 import socketio
-from typing import Callable, Dict, List
+from reactivex import Observable, Subject, operators as ops
+from reactivex.disposable.disposable import Disposable
+from reactivex.scheduler import ThreadPoolScheduler
+from typing import Callable
 from app import current_app
-from app.model import AbstractRunner, SocketioEvent
-from app.services.console_service import consoleService, Console
+from app.model import AbstractRunner, SerialIOEvent
+from .console_service import consoleService, Console
 
 
 class SocketIOService(AbstractRunner):
   __requests_pool = set()
   __sio = socketio.AsyncSimpleClient()
   __listener: Callable
-  __events_recieved: Dict[str, List[SocketioEvent]] = {}
-  """
-    Словарь полученных событий.
-    На одно устройство доступно одно последнее событие для каждого action
+  __events_subject: Subject[SerialIOEvent] = Subject()
+  __subscription: Disposable
 
-    Device_code: { action: payload };
-    """
+  events: Observable[SerialIOEvent]
 
   console: Console
   run_interval = 1.0
@@ -28,7 +29,14 @@ class SocketIOService(AbstractRunner):
 
   def __init__(self) -> None:
     self.console = consoleService.console(self)
-    pass
+    threads = multiprocessing.cpu_count()
+    tph = ThreadPoolScheduler(threads)
+
+    self.events = self.__events_subject.pipe(
+      ops.observe_on(tph),
+    )
+
+    self.__subscription = self.events.subscribe()
 
   async def connect(self) -> None:
     await self.__sio.connect(current_app.config.SERVER_HOST)
@@ -45,19 +53,15 @@ class SocketIOService(AbstractRunner):
         return
 
       (device_code, action) = splitting
-      event_model = SocketioEvent(device_code, action, payload)
+      event_model = SerialIOEvent(device_code, action, payload)
 
       # self.console.log_self(f"Событие для устройства {device_code}, действие {action}")
-
-      if device_code not in self.__events_recieved:
-        self.__events_recieved[device_code] = [event_model]
-      else:
-        self.__events_recieved[device_code].append(event_model)
+      self.__events_subject.on_next(event_model)
 
     self.__listener = catch_all
 
-  def emit_event(self, device_code: str, action: str, payload: any) -> None:
-    task = asyncio.create_task(self.__sio.emit(f"{device_code}:{action}", payload))
+  def emit_event(self, event: SerialIOEvent) -> None:
+    task = asyncio.create_task(self.__sio.emit(f"{event.device_code}:{event.action}", event.payload))
 
     # Add task to the set. This creates a strong reference.
     self.__requests_pool.add(task)
@@ -65,16 +69,7 @@ class SocketIOService(AbstractRunner):
     # To prevent keeping references to finished tasks forever,
     # make each task remove its own reference from the set after
     # completion:
-    task.add_done_callback(self.__on_event_sent(device_code, action))
-
-  def transmit_events(self, device_code: str) -> None | List[SocketioEvent]:
-    if device_code not in self.__events_recieved or not self.__events_recieved[device_code]:
-      return
-
-    copy = [SocketioEvent(e.device_code, e.action, e.payload) for e in self.__events_recieved[device_code]]
-    del self.__events_recieved[device_code]
-    # self.console.log_self(f"Передал {device_code} {len(copy)} событие(-ий)")
-    return copy
+    task.add_done_callback(self.__on_event_sent(event.device_code, event.action))
 
   def __on_event_sent(self, device_code: str, action: str):
     def result(task: asyncio.Task):

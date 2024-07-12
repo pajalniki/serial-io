@@ -5,8 +5,8 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Current File",
-            "type": "python",
+            "name": "Запустить Python приложение",
+            "type": "debugpy",
             "request": "launch",
             "program": "main.py",
             "console": "integratedTerminal",

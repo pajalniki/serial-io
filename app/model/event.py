@@ -1,4 +1,4 @@
-class SocketioEvent:
+class SerialIOEvent:
   device_code: str
   action: str
   payload: any

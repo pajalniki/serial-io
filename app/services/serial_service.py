@@ -22,10 +22,10 @@ class SerialService:
   def __init__(self) -> None:
     self.console = consoleService.console(self)
 
-    refresh = interval(REFRESH_INTERVAL).pipe(ops.map(lambda _n: self.refresh_serials()))
+    refresh = interval(REFRESH_INTERVAL).pipe(ops.do_action(lambda _n: self.refresh_serials()))
 
-    loop = asyncio.get_event_loop()
-    # asyncio.set_event_loop(loop)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
     self.__asyncio_scheduler = AsyncIOScheduler(loop)
     self.__subscription = refresh.subscribe()
