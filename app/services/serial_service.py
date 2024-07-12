@@ -1,10 +1,8 @@
 import sys
 import glob
 from typing import Dict
-import asyncio
 from reactivex import interval, operators as ops
 from reactivex.disposable.disposable import Disposable
-from reactivex.scheduler.eventloop import AsyncIOScheduler
 import serial
 from .console_service import consoleService, Console
 from app.devices import Device
@@ -15,7 +13,6 @@ REFRESH_INTERVAL = 1
 class SerialService:
   __devices: Dict[str, Device] = {}
   __subscription: Disposable
-  __asyncio_scheduler: AsyncIOScheduler
 
   console: Console
 
@@ -23,11 +20,6 @@ class SerialService:
     self.console = consoleService.console(self)
 
     refresh = interval(REFRESH_INTERVAL).pipe(ops.do_action(lambda _n: self.refresh_serials()))
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    self.__asyncio_scheduler = AsyncIOScheduler(loop)
     self.__subscription = refresh.subscribe()
 
   def list(self):
@@ -85,7 +77,7 @@ class SerialService:
   def install_device(self, port):
     serial = self.define_serial(port)
     if serial:
-      self.__devices[port] = Device(serial, self.__asyncio_scheduler)
+      self.__devices[port] = Device(serial)
 
   def delete_device(self, port):
     if self.__devices[port]:

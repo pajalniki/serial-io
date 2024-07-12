@@ -3,7 +3,6 @@ import serial
 import time
 from reactivex import merge, operators as ops, Observable
 from reactivex.disposable.disposable import Disposable
-from reactivex.abc import SchedulerBase
 from app.model import SerialIOEvent
 from app.services import consoleService, Console
 from app.services.socketio_service import socketioService
@@ -24,7 +23,7 @@ class Device:
   def active(self):
     return self._serial.is_open
 
-  def __init__(self, dev_serial: serial.Serial, sheduler: SchedulerBase) -> None:
+  def __init__(self, dev_serial: serial.Serial) -> None:
     self._serial = dev_serial
     self.console = consoleService.console(self)
     input_job = Process(target=self.read_input())
@@ -41,8 +40,11 @@ class Device:
     self.subscription = observables.subscribe()
 
   def kill(self, ex: Exception = None):
-    self._serial.close()
-    self.subscription.dispose()
+    if self._serial:
+      self._serial.close()
+    if self.subscription:
+      self.subscription.dispose()
+
     if ex:
       self.console.log_self(f"Прерываю устройство {self.code} из-за исключения {ex}")
     else:
