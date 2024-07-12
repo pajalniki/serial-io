@@ -40,9 +40,9 @@ class Device:
     self.subscription = observables.subscribe()
 
   def kill(self, ex: Exception = None):
-    if self._serial:
+    if hasattr(self, "_serial"):
       self._serial.close()
-    if self.subscription:
+    if hasattr(self, "subscription"):
       self.subscription.dispose()
 
     if ex:
