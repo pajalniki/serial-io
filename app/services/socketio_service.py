@@ -3,7 +3,7 @@ import multiprocessing
 import socketio
 from reactivex import Observable, Subject, operators as ops
 from reactivex.disposable.disposable import Disposable
-from reactivex.scheduler import ThreadPoolScheduler
+from reactivex.scheduler.eventloop import AsyncIOScheduler
 from typing import Callable
 from app import current_app
 from app.model import AbstractRunner, SerialIOEvent
@@ -29,11 +29,11 @@ class SocketIOService(AbstractRunner):
 
   def __init__(self) -> None:
     self.console = consoleService.console(self)
-    threads = multiprocessing.cpu_count()
-    tph = ThreadPoolScheduler(threads)
+    loop = asyncio.new_event_loop()
+    scheduler = AsyncIOScheduler(loop)
 
     self.events = self.__events_subject.pipe(
-      ops.observe_on(tph),
+      ops.observe_on(scheduler),
     )
 
     self.__subscription = self.events.subscribe()
