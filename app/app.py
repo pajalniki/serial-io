@@ -1,5 +1,6 @@
 from argparse import Namespace
 import asyncio
+import sys
 
 from .model import SerialIO
 from .config import DevelopmentConfig, ProductionConfig

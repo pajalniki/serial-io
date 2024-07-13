@@ -61,7 +61,7 @@ class SocketIOService(AbstractRunner):
     self.__listener = catch_all
 
   def emit_event(self, event: SerialIOEvent) -> None:
-    task = asyncio.create_task(self.__sio.emit(f"{event.device_code}:{event.action}", event.payload))
+    task = current_app.loop.create_task(self.__sio.emit(f"{event.device_code}:{event.action}", event.payload))
 
     # Add task to the set. This creates a strong reference.
     self.__requests_pool.add(task)
@@ -69,14 +69,7 @@ class SocketIOService(AbstractRunner):
     # To prevent keeping references to finished tasks forever,
     # make each task remove its own reference from the set after
     # completion:
-    task.add_done_callback(self.__on_event_sent(event.device_code, event.action))
-
-  def __on_event_sent(self, device_code: str, action: str):
-    def result(task: asyncio.Task):
-      # self.console.log_self(f"Отправил событие {action} ({device_code})")
-      self.__requests_pool.discard(task)
-
-    return result
+    task.add_done_callback(lambda _task: self.__requests_pool.discard(_task))
 
   async def run(self):
     task = asyncio.create_task(self.connect())

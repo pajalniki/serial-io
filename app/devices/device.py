@@ -1,3 +1,4 @@
+import asyncio
 from multiprocessing import Process
 import serial
 import time
@@ -26,6 +27,7 @@ class Device:
   def __init__(self, dev_serial: serial.Serial) -> None:
     self._serial = dev_serial
     self.console = consoleService.console(self)
+
     input_job = Process(target=self.read_input())
     input_job.start()
     input_job.join()
@@ -40,16 +42,18 @@ class Device:
     self.subscription = observables.subscribe()
 
   def kill(self, ex: Exception = None):
-    if hasattr(self, "_serial"):
+    try:
       self._serial.close()
-    if hasattr(self, "subscription"):
       self.subscription.dispose()
 
-    if ex:
-      self.console.log_self(f"Прерываю устройство {self.code} из-за исключения {ex}")
-    else:
-      self.console.log_self(f"Прерываю устройство {self.code}")
-    return
+      if ex:
+        self.console.log_self(f"Прерываю устройство {self.code} из-за исключения {ex}")
+      else:
+        self.console.log_self(f"Прерываю устройство {self.code}")
+
+    except Exception:
+      self.console.log_self(f"Прерываю устройство {self.code} [{ex}]")
+      return
 
   def read_code(self):
     got_str = self._serial.readline().decode("ascii")
@@ -66,41 +70,36 @@ class Device:
   def get_input(self):
     if not self._serial or not self._serial.in_waiting:
       return
+    got_str = self._serial.readline().decode("ascii")  # получение отправленных данных
+    split = got_str.replace("/n", "").strip().split()  # разделяем полученную строку
 
-    try:
-      got_str = self._serial.readline().decode("ascii")  # получение отправленных данных
-      split = got_str.replace("/n", "").strip().split()  # разделяем полученную строку
-
-      if not split:
-        return
-      if len(split) != 2:
-        self.console.log_self(f"{self.code} - неверный формат ввода {got_str}")
-        return
-
-      (action_code, payload) = split
-      # self.console.log_self(f"КОД: {self.code} | СОБЫТИЕ: {action_code} | ДАННЫЕ: {payload}")
-
-      if not socketioService.is_connected:
-        self.console.log_self("Связь с сервером недоступна")
-        self.calltime = time.perf_counter()
-        return
-
-      socketioService.emit_event(SerialIOEvent(self.code, action_code, payload))
-
-    except Exception as ex:
-      self.console.log_self(f"{self.code} - выполнение прервано. {ex} \nОтключаю {self.code}")
-      self.kill(ex)
-      self.calltime = time.perf_counter()
+    if not split:
       return
+    if len(split) != 2:
+      self.console.log_self(f"{self.code} - неверный формат ввода {got_str}")
+      return
+
+    (action_code, payload) = split
+    # self.console.log_self(f"КОД: {self.code} | СОБЫТИЕ: {action_code} | ДАННЫЕ: {payload}")
+
+    if not socketioService.is_connected:
+      self.console.log_self("Связь с сервером недоступна")
+      return
+
+    socketioService.emit_event(SerialIOEvent(self.code, action_code, payload))
 
   def transmit_output(self, event: SerialIOEvent):
     self._serial.write(str.encode(f"{event.action} {event.payload}"))
 
   def read_input(self):
-    while True:
-      if not self.code:
-        self.read_code()
-      else:
-        self.get_input()
+    try:
+      while True:
+        if not self.code:
+          self.read_code()
+        else:
+          self.get_input()
+        time.sleep(READ_INTERVAL)
 
-      time.sleep(READ_INTERVAL)
+    except Exception as ex:
+      self.kill(ex)
+      return
