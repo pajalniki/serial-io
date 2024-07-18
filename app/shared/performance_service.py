@@ -1,7 +1,7 @@
 import time
 from typing import Callable
 
-from app.services.console_service import Console, consoleService
+from app.shared import Console, consoleService
 
 
 class PerformanceService:

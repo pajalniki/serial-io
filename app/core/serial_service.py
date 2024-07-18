@@ -1,11 +1,12 @@
 import sys
 import glob
 from typing import Dict
-from reactivex import interval, operators as ops
-from reactivex.disposable.disposable import Disposable
+from reactivex import Observable, interval, operators as ops
+from reactivex.disposable import Disposable
 import serial
-from .console_service import consoleService, Console
-from app.devices import Device
+from app.shared import consoleService, Console
+from .device import Device
+
 
 REFRESH_INTERVAL = 1
 
@@ -13,14 +14,18 @@ REFRESH_INTERVAL = 1
 class SerialService:
   __devices: Dict[str, Device] = {}
   __subscription: Disposable
+  __refresh: Observable[None]
 
   console: Console
 
   def __init__(self) -> None:
     self.console = consoleService.console(self)
 
-    refresh = interval(REFRESH_INTERVAL).pipe(ops.do_action(lambda _n: self.refresh_serials()))
-    self.__subscription = refresh.subscribe()
+    self.__refresh = interval(REFRESH_INTERVAL).pipe(
+      ops.do_action(lambda _n: self.refresh_serials()),
+    )
+
+    self.__subscription = self.__refresh.subscribe()
 
   def list(self):
     """Lists serial port names

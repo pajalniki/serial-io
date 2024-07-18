@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 class AbstractRunner(ABC):
   @abstractmethod
-  async def run(self):
+  async def on_refresh_fail(self):
     pass
 
 
