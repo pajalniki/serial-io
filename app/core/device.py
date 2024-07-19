@@ -1,4 +1,3 @@
-import asyncio
 from concurrent.futures import Executor, ThreadPoolExecutor
 import serial
 import time
