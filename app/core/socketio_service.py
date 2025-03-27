@@ -65,7 +65,6 @@ class SocketIOService:
       (device_code, action) = splitting
       event_model = SerialIOEvent(device_code, action, payload)
 
-      # self.console.log_self(f"Событие для устройства {device_code}, действие {action}")
       self.__transmit_subject.on_next(event_model)
 
     self.__listener = catch_all
@@ -79,6 +78,7 @@ class SocketIOService:
 
   def emit_event_in_thread(self, event: SerialIOEvent):
     loop = asyncio.get_event_loop()
+    self.console.log_self(f"Отправка события: {event.device_code}:{event.action}, payload: {event.payload}, type: {type(event.payload)}")
     return loop.run_until_complete(self.__sio.emit(f"{event.device_code}:{event.action}", event.payload))
 
 

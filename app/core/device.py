@@ -65,11 +65,15 @@ class Device:
       return
     got_str = self.__serial.readline().decode("ascii")  # получение отправленных данных
     split = got_str.replace("/n", "").strip().split()  # разделяем полученную строку
+    self.console.log_self(got_str)
 
     if not split:
       return
     if len(split) != 2:
-      self.console.log_self(f"{self.code} - неверный формат ввода {got_str}")
+      if split[0].startswith('log'):
+        self.console.log_self(f"Получена строка: {got_str}")
+      else:
+        self.console.log_self(f"{self.code} - неверный формат ввода {got_str}")
       return
 
     (action_code, payload) = split
@@ -82,7 +86,9 @@ class Device:
     socketioService.emit_event(SerialIOEvent(self.code, action_code, payload))
 
   def transmit_output(self, event: SerialIOEvent):
-    self.__serial.write(str.encode(f"{event.action} {event.payload}"))
+    # self.console.log_self(f"Финальная часть для устройства {event.device_code}, действие {event.action}, payload {event.payload}")
+    
+    self.__serial.write(str.encode(f"{event.action} {event.payload}\n"))
 
   def run_thread(self):
     try:
